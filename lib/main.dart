@@ -23,6 +23,7 @@ import 'utils/system_tray.dart';
 import 'utils/update_check_flag_file.dart';
 
 import '/services/permission_service.dart';
+import '/services/dynamic_island_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -139,7 +140,19 @@ class LifecycleHandler extends WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+      DynamicIslandService.hideIsland();
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (Get.isRegistered<PlayerController>()) {
+        final playerCon = Get.find<PlayerController>();
+        if (playerCon.currentSong.value != null) {
+          final isPlaying =
+              playerCon.buttonState.value == PlayButtonState.playing;
+          DynamicIslandService.showIsland(isPlaying: isPlaying);
+        }
+      }
     } else if (state == AppLifecycleState.detached) {
+      DynamicIslandService.hideIsland();
       await Get.find<AudioHandler>().customAction("saveSession");
     }
   }
