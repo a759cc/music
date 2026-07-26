@@ -64,10 +64,13 @@ class MainActivity : AudioServiceActivity() {
 
     private val executor = Executors.newSingleThreadExecutor()
 
-    // 针对 realme UI 6.0 打造的精致悬浮胶囊参数 (126dp x 28dp, radius 14dp)
-    private var MINI_WIDTH_DP = 126f
-    private var MINI_HEIGHT_DP = 28f
-    private var MINI_RADIUS_DP = 14f
+    // 完美以前置摄像头圆心为中心的灵动岛胶囊尺寸参数 (138dp x 30dp, radius 15dp)
+    private var MINI_WIDTH_DP = 138f
+    private var MINI_HEIGHT_DP = 30f
+    private var MINI_RADIUS_DP = 15f
+
+    // 触控热区扩展高度（确保穿透 realme UI 6.0 状态栏屏蔽）
+    private var TOUCH_HITBOX_HEIGHT_DP = 52f
 
     private val EXPANDED_WIDTH_DP = 330f
     private val EXPANDED_HEIGHT_DP = 160f
@@ -158,8 +161,7 @@ class MainActivity : AudioServiceActivity() {
     }
 
     /**
-     * 解决 realme UI 6.0 (Android 15) 状态栏 0~32dp 拦截区触摸屏蔽问题的核心算法：
-     * 将悬浮窗精确对齐在状态栏下沿正下方 (+2dp)，彻底避开 SystemUI 触摸拦截区，实现在桌面 100% 捕获点击！
+     * 100% 以前置摄像头圆心为中心居中包裹的精确算法
      */
     private fun calculateCameraCenterYPx(): Int {
         var sbHeight = 0
@@ -179,12 +181,12 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
-        if (sbHeight <= 0) {
-            sbHeight = dpToPx(34f)
+        val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
+        return if (sbHeight > 0) {
+            (sbHeight - miniHeightPx) / 2
+        } else {
+            dpToPx(2f)
         }
-
-        // 精准对齐在状态栏底边正下方 2dp，既美观紧凑，又 100% 可被正常点击！
-        return sbHeight + dpToPx(2f)
     }
 
     private fun formatTime(ms: Int): String {
@@ -286,14 +288,14 @@ class MainActivity : AudioServiceActivity() {
             setStroke(dpToPx(0.8f), Color.parseColor("#33FFFFFF"))
         }
 
-        // --- MINI CONTAINER ---
+        // --- MINI CONTAINER (100% 以前置摄像头圆心为中心 138dp x 30dp 胶囊) ---
         miniContainer = LinearLayout(appContext).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             isClickable = true
             isFocusable = true
             background = islandBackground
-            setPadding(dpToPx(4f), dpToPx(2f), dpToPx(6f), dpToPx(2f))
+            setPadding(dpToPx(5f), dpToPx(3f), dpToPx(7f), dpToPx(3f))
             layoutParams = FrameLayout.LayoutParams(
                 dpToPx(MINI_WIDTH_DP),
                 dpToPx(MINI_HEIGHT_DP),
@@ -301,7 +303,7 @@ class MainActivity : AudioServiceActivity() {
             )
         }
 
-        val discSize = dpToPx(22f)
+        val discSize = dpToPx(24f)
         miniDiscImageView = ImageView(appContext).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             isClickable = true
@@ -321,7 +323,7 @@ class MainActivity : AudioServiceActivity() {
         waveformViewMini = WaveformView(appContext).apply {
             isClickable = true
             isFocusable = true
-            layoutParams = LinearLayout.LayoutParams(dpToPx(18f), dpToPx(12f))
+            layoutParams = LinearLayout.LayoutParams(dpToPx(20f), dpToPx(14f))
         }
 
         miniContainer?.addView(miniDiscImageView)
@@ -522,23 +524,29 @@ class MainActivity : AudioServiceActivity() {
         islandView?.addView(miniContainer)
         islandView?.addView(expandedContainer)
 
-        val yOffsetPx = calculateCameraCenterYPx()
-        val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
+        val cameraCenterYPx = calculateCameraCenterYPx()
+        val hitBoxHeightPx = dpToPx(TOUCH_HITBOX_HEIGHT_DP)
 
+        // 以前置摄像头圆心为中心的 Window Parameters
         wmParams = WindowManager.LayoutParams(
             dpToPx(MINI_WIDTH_DP),
-            miniHeightPx,
+            hitBoxHeightPx,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = yOffsetPx
+            y = cameraCenterYPx
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
         }
 
         val toggleExpandListener = View.OnClickListener {
@@ -620,7 +628,7 @@ class MainActivity : AudioServiceActivity() {
 
         animateIslandSize(
             dpToPx(MINI_WIDTH_DP), dpToPx(EXPANDED_WIDTH_DP),
-            dpToPx(MINI_HEIGHT_DP), dpToPx(EXPANDED_HEIGHT_DP),
+            dpToPx(TOUCH_HITBOX_HEIGHT_DP), dpToPx(EXPANDED_HEIGHT_DP),
             dpToPx(MINI_RADIUS_DP), dpToPx(EXPANDED_RADIUS_DP)
         )
     }
@@ -636,7 +644,7 @@ class MainActivity : AudioServiceActivity() {
 
         animateIslandSize(
             dpToPx(EXPANDED_WIDTH_DP), dpToPx(MINI_WIDTH_DP),
-            dpToPx(EXPANDED_HEIGHT_DP), dpToPx(MINI_HEIGHT_DP),
+            dpToPx(EXPANDED_HEIGHT_DP), dpToPx(TOUCH_HITBOX_HEIGHT_DP),
             dpToPx(EXPANDED_RADIUS_DP), dpToPx(MINI_RADIUS_DP)
         )
     }
