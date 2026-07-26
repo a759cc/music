@@ -165,19 +165,10 @@ class DynamicIslandOverlayService : Service() {
     }
 
     private fun calculateCameraCenterYPx(): Int {
-        var sbHeight = 0
-        val resId = resources.getIdentifier("status_bar_height", "dimen", "android")
-        if (resId > 0) {
-            sbHeight = resources.getDimensionPixelSize(resId)
-        }
-        val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
-        val calculatedY = if (sbHeight > 0) {
-            (sbHeight - miniHeightPx) / 2 + dpToPx(3f)
-        } else {
-            dpToPx(12f)
-        }
-        return Math.max(dpToPx(8f), calculatedY)
+        // 恢复用户认可的理想版本偏置量：贴合顶部状态栏 1.5dp 偏移
+        return dpToPx(1.5f)
     }
+
 
     private fun formatTime(ms: Int): String {
         val totalSec = ms / 1000
