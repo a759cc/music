@@ -69,6 +69,9 @@ class MainActivity : AudioServiceActivity() {
     private var MINI_HEIGHT_DP = 28f  // 更加精致紧凑的高度
     private var MINI_RADIUS_DP = 14f
 
+    // 触控热区扩展高度（保证突破 Realme UI 状态栏拦截）
+    private var TOUCH_HITBOX_HEIGHT_DP = 52f
+
     private val EXPANDED_WIDTH_DP = 330f
     private val EXPANDED_HEIGHT_DP = 160f
     private val EXPANDED_RADIUS_DP = 26f
@@ -286,16 +289,17 @@ class MainActivity : AudioServiceActivity() {
             cornerRadius = dpToPx(MINI_RADIUS_DP).toFloat()
             setStroke(dpToPx(0.8f), Color.parseColor("#33FFFFFF"))
         }
-        islandView?.background = islandBackground
 
         // --- MINI CONTAINER (收起态: 126dp x 28dp 缩小版) ---
         miniContainer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            background = islandBackground
             setPadding(dpToPx(4f), dpToPx(2f), dpToPx(6f), dpToPx(2f))
             layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
+                dpToPx(MINI_WIDTH_DP),
+                dpToPx(MINI_HEIGHT_DP),
+                Gravity.TOP or Gravity.CENTER_HORIZONTAL
             )
         }
 
@@ -326,6 +330,7 @@ class MainActivity : AudioServiceActivity() {
         expandedContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
+            background = islandBackground
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -517,16 +522,17 @@ class MainActivity : AudioServiceActivity() {
 
         // 动态垂直下移 Offset 参数计算：精准适配 Realme 15 挖孔镜头中心
         val yOffsetPx = calculateCameraCenterYPx()
-        val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
+        val hitBoxHeightPx = dpToPx(TOUCH_HITBOX_HEIGHT_DP)
 
         wmParams = WindowManager.LayoutParams(
             dpToPx(MINI_WIDTH_DP),
-            miniHeightPx,
+            hitBoxHeightPx,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                     WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
@@ -616,7 +622,7 @@ class MainActivity : AudioServiceActivity() {
 
         animateIslandSize(
             dpToPx(MINI_WIDTH_DP), dpToPx(EXPANDED_WIDTH_DP),
-            dpToPx(MINI_HEIGHT_DP), dpToPx(EXPANDED_HEIGHT_DP),
+            dpToPx(TOUCH_HITBOX_HEIGHT_DP), dpToPx(EXPANDED_HEIGHT_DP),
             dpToPx(MINI_RADIUS_DP), dpToPx(EXPANDED_RADIUS_DP)
         )
     }
@@ -632,7 +638,7 @@ class MainActivity : AudioServiceActivity() {
 
         animateIslandSize(
             dpToPx(EXPANDED_WIDTH_DP), dpToPx(MINI_WIDTH_DP),
-            dpToPx(EXPANDED_HEIGHT_DP), dpToPx(MINI_HEIGHT_DP),
+            dpToPx(EXPANDED_HEIGHT_DP), dpToPx(TOUCH_HITBOX_HEIGHT_DP),
             dpToPx(EXPANDED_RADIUS_DP), dpToPx(MINI_RADIUS_DP)
         )
     }
