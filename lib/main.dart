@@ -35,6 +35,8 @@ Future<void> main() async {
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   TerminateRestart.instance.initialize();
   PermissionService.initPermissionsOnAppStart();
+  DynamicIslandService.init();
+  DynamicIslandService.ensureOverlayPermission();
   runApp(const MyApp());
 }
 
@@ -136,19 +138,36 @@ void _setAppInitPrefs() {
 }
 
 class LifecycleHandler extends WidgetsBindingObserver {
+  bool _isInBackground = false;
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) async {
     if (state == AppLifecycleState.resumed) {
+      _isInBackground = false;
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       DynamicIslandService.hideIsland();
     } else if (state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive) {
+      if (_isInBackground) return; // avoid duplicate calls
+      _isInBackground = true;
+
+      // Auto-request overlay permission if not granted
+      await DynamicIslandService.ensureOverlayPermission();
+
       if (Get.isRegistered<PlayerController>()) {
         final playerCon = Get.find<PlayerController>();
-        if (playerCon.currentSong.value != null) {
+        final song = playerCon.currentSong.value;
+        if (song != null) {
           final isPlaying =
               playerCon.buttonState.value == PlayButtonState.playing;
-          DynamicIslandService.showIsland(isPlaying: isPlaying);
+          DynamicIslandService.showIsland(
+            isPlaying: isPlaying,
+            title: song.title,
+            artist: song.artist ?? '',
+          );
+
+          // Start periodic progress updates for the native overlay
+          _startProgressUpdates();
         }
       }
     } else if (state == AppLifecycleState.detached) {
@@ -156,4 +175,31 @@ class LifecycleHandler extends WidgetsBindingObserver {
       await Get.find<AudioHandler>().customAction("saveSession");
     }
   }
+
+  void _startProgressUpdates() {
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!_isInBackground) return false; // stop when resumed
+
+      if (!Get.isRegistered<PlayerController>()) return false;
+      final pc = Get.find<PlayerController>();
+      final song = pc.currentSong.value;
+      if (song == null) return false;
+
+      final isPlaying = pc.buttonState.value == PlayButtonState.playing;
+      final pos = pc.progressBarStatus.value.current;
+      final dur = pc.progressBarStatus.value.total;
+
+      DynamicIslandService.updateState(
+        isPlaying: isPlaying,
+        positionMs: pos.inMilliseconds,
+        durationMs: dur.inMilliseconds,
+        title: song.title,
+        artist: song.artist ?? '',
+      );
+
+      return _isInBackground; // continue while in background
+    });
+  }
 }
+
