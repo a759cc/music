@@ -11,6 +11,7 @@ import '../ui/navigator.dart';
 import '../ui/player/player.dart';
 import 'player/components/mini_player.dart';
 import 'player/player_controller.dart';
+import 'widgets/dynamic_island_widget.dart';
 import 'widgets/bottom_nav_bar.dart';
 import 'widgets/scroll_to_hide.dart';
 import 'widgets/sliding_up_panel.dart';
@@ -186,24 +187,29 @@ class Home extends StatelessWidget {
                     )
                   : null,
               drawerScrimColor: Colors.transparent,
-              body: Obx(() => SlidingUpPanel(
-                    onPanelSlide: playerController.panellistener,
-                    controller: playerController.playerPanelController,
-                    minHeight: playerController.playerPanelMinHeight.value,
-                    maxHeight: size.height,
-                    isDraggable: !isWideScreen,
-                    onSwipeUp: () {
-                      playerController.queuePanelController.open();
-                    },
-                    panel: const Player(),
-                    body: const ScreenNavigation(),
-                    header: !isWideScreen
-                        ? InkWell(
-                            onTap: playerController.playerPanelController.open,
-                            child: const MiniPlayer(),
-                          )
-                        : const MiniPlayer(),
-                  ))),
+              body: Stack(
+                children: [
+                  Obx(() => SlidingUpPanel(
+                        onPanelSlide: playerController.panellistener,
+                        controller: playerController.playerPanelController,
+                        minHeight: playerController.playerPanelMinHeight.value,
+                        maxHeight: size.height,
+                        isDraggable: !isWideScreen,
+                        onSwipeUp: () {
+                          playerController.queuePanelController.open();
+                        },
+                        panel: const Player(),
+                        body: const ScreenNavigation(),
+                        header: !isWideScreen
+                            ? InkWell(
+                                onTap: playerController.playerPanelController.open,
+                                child: const MiniPlayer(),
+                              )
+                            : const MiniPlayer(),
+                      )),
+                  const DynamicIslandWidget(),
+                ],
+              )),
         ),
       ),
     );
