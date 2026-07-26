@@ -8,13 +8,10 @@ import android.graphics.*
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Build
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -53,7 +50,7 @@ class MainActivity : AudioServiceActivity() {
     private var expandedContainer: LinearLayout? = null
     private var waveformViewMini: WaveformView? = null
     private var waveformViewExpanded: WaveformView? = null
-    
+
     private var miniDiscImageView: ImageView? = null
     private var expandedArtImageView: ImageView? = null
     private var titleTextView: TextView? = null
@@ -66,14 +63,14 @@ class MainActivity : AudioServiceActivity() {
 
     private val executor = Executors.newSingleThreadExecutor()
 
-    // Dimensions (1:1 matching user's screenshot requirements)
-    private val MINI_WIDTH_DP = 148f
-    private val MINI_HEIGHT_DP = 34f
-    private val MINI_RADIUS_DP = 17f
+    // 动态居中适配与尺寸参数（微调缩小）
+    private var MINI_WIDTH_DP = 138f
+    private var MINI_HEIGHT_DP = 30f
+    private var MINI_RADIUS_DP = 15f
 
-    private val EXPANDED_WIDTH_DP = 340f
-    private val EXPANDED_HEIGHT_DP = 165f
-    private val EXPANDED_RADIUS_DP = 28f
+    private val EXPANDED_WIDTH_DP = 330f
+    private val EXPANDED_HEIGHT_DP = 160f
+    private val EXPANDED_RADIUS_DP = 26f
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -92,7 +89,7 @@ class MainActivity : AudioServiceActivity() {
                     val title = call.argument<String>("title") ?: ""
                     val artist = call.argument<String>("artist") ?: ""
                     val artUri = call.argument<String>("artUri") ?: ""
-                    
+
                     runOnUiThread {
                         if (!Settings.canDrawOverlays(this)) {
                             requestOverlayPermission()
@@ -120,7 +117,7 @@ class MainActivity : AudioServiceActivity() {
                     val title = call.argument<String>("title")
                     val artist = call.argument<String>("artist")
                     val artUri = call.argument<String>("artUri")
-                    
+
                     runOnUiThread {
                         if (playing != null) isPlaying = playing
                         if (positionMs != null) currentPositionMs = positionMs
@@ -159,6 +156,22 @@ class MainActivity : AudioServiceActivity() {
         ).roundToInt()
     }
 
+    /**
+     * 动态获取当前设备系统状态栏高度 (Status Bar Height)
+     * 从而将灵动岛完美包裹在顶部摄像头挖孔中央，不受静态硬编码限制
+     */
+    private fun getStatusBarHeightPx(): Int {
+        var statusBarHeight = 0
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        if (resourceId > 0) {
+            statusBarHeight = resources.getDimensionPixelSize(resourceId)
+        }
+        if (statusBarHeight <= 0) {
+            statusBarHeight = dpToPx(28f)
+        }
+        return statusBarHeight
+    }
+
     private fun formatTime(ms: Int): String {
         val totalSec = ms / 1000
         val min = totalSec / 60
@@ -177,8 +190,8 @@ class MainActivity : AudioServiceActivity() {
                 val bitmap: Bitmap? = if (artUri.startsWith("http://") || artUri.startsWith("https://")) {
                     val url = URL(artUri)
                     val conn = url.openConnection() as HttpURLConnection
-                    conn.connectTimeout = 5000
-                    conn.readTimeout = 5000
+                    conn.connectTimeout = 4000
+                    conn.readTimeout = 4000
                     conn.doInput = true
                     conn.connect()
                     BitmapFactory.decodeStream(conn.inputStream)
@@ -203,7 +216,7 @@ class MainActivity : AudioServiceActivity() {
             val circularBmp = getCircularBitmap(bmp)
             miniDiscImageView?.setImageBitmap(circularBmp)
 
-            val roundedBmp = getRoundedCornerBitmap(bmp, dpToPx(10f))
+            val roundedBmp = getRoundedCornerBitmap(bmp, dpToPx(8f))
             expandedArtImageView?.setImageBitmap(roundedBmp)
         } else {
             miniDiscImageView?.setImageBitmap(null)
@@ -248,24 +261,24 @@ class MainActivity : AudioServiceActivity() {
 
         islandView = FrameLayout(this)
         islandBackground = GradientDrawable().apply {
-            setColor(Color.parseColor("#16171E"))
+            setColor(Color.parseColor("#0F1015"))
             cornerRadius = dpToPx(MINI_RADIUS_DP).toFloat()
             setStroke(dpToPx(0.8f), Color.parseColor("#33FFFFFF"))
         }
         islandView?.background = islandBackground
 
-        // --- MINI CONTAINER (收起态: 148dp x 34dp) ---
+        // --- MINI CONTAINER (收起态: 138dp x 30dp) ---
         miniContainer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(6f), dpToPx(4f), dpToPx(8f), dpToPx(4f))
+            setPadding(dpToPx(5f), dpToPx(3f), dpToPx(7f), dpToPx(3f))
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
 
-        val discSize = dpToPx(26f)
+        val discSize = dpToPx(24f)
         miniDiscImageView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             background = GradientDrawable().apply {
@@ -281,14 +294,14 @@ class MainActivity : AudioServiceActivity() {
         }
 
         waveformViewMini = WaveformView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dpToPx(22f), dpToPx(16f))
+            layoutParams = LinearLayout.LayoutParams(dpToPx(20f), dpToPx(14f))
         }
 
         miniContainer?.addView(miniDiscImageView)
         miniContainer?.addView(miniSpacer)
         miniContainer?.addView(waveformViewMini)
 
-        // --- EXPANDED CONTAINER (展开态: 340dp x 165dp 匹配图2) ---
+        // --- EXPANDED CONTAINER (展开态卡片: 330dp x 160dp) ---
         expandedContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -310,16 +323,16 @@ class MainActivity : AudioServiceActivity() {
             )
         }
 
-        val artSize = dpToPx(46f)
+        val artSize = dpToPx(44f)
         expandedArtImageView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             background = GradientDrawable().apply {
-                cornerRadius = dpToPx(10f).toFloat()
+                cornerRadius = dpToPx(8f).toFloat()
                 setColor(Color.parseColor("#1A1A1A"))
                 setStroke(dpToPx(1f), Color.parseColor("#33FFFFFF"))
             }
             layoutParams = LinearLayout.LayoutParams(artSize, artSize).apply {
-                rightMargin = dpToPx(12f)
+                rightMargin = dpToPx(10f)
             }
         }
 
@@ -347,7 +360,7 @@ class MainActivity : AudioServiceActivity() {
         textContainer.addView(artistTextView)
 
         waveformViewExpanded = WaveformView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dpToPx(22f), dpToPx(16f))
+            layoutParams = LinearLayout.LayoutParams(dpToPx(20f), dpToPx(14f))
         }
 
         topRow.addView(expandedArtImageView)
@@ -403,7 +416,7 @@ class MainActivity : AudioServiceActivity() {
         progressRow.addView(seekBar)
         progressRow.addView(durTextView)
 
-        // Bottom Row: Media Controls (Prev, Play/Pause circle, Next, Collapse)
+        // Bottom Row: Media Controls (Prev, Play/Pause circle, Next, App Switcher / Collapse)
         val controlsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -426,7 +439,7 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
-        val playBtnSize = dpToPx(42f)
+        val playBtnSize = dpToPx(40f)
         val playBtnWrapper = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
@@ -435,7 +448,7 @@ class MainActivity : AudioServiceActivity() {
                 shape = GradientDrawable.OVAL
                 setColor(Color.WHITE)
             }
-            setPadding(dpToPx(10f), dpToPx(10f), dpToPx(10f), dpToPx(10f))
+            setPadding(dpToPx(9f), dpToPx(9f), dpToPx(9f), dpToPx(9f))
             setColorFilter(Color.BLACK)
             layoutParams = FrameLayout.LayoutParams(playBtnSize, playBtnSize, Gravity.CENTER)
             setOnClickListener {
@@ -471,7 +484,6 @@ class MainActivity : AudioServiceActivity() {
         controlsRow.addView(nextBtn)
         controlsRow.addView(collapseBtn)
 
-
         expandedContainer?.addView(topRow)
         expandedContainer?.addView(progressRow)
         expandedContainer?.addView(controlsRow)
@@ -479,10 +491,14 @@ class MainActivity : AudioServiceActivity() {
         islandView?.addView(miniContainer)
         islandView?.addView(expandedContainer)
 
-        // WindowManager parameters: y = 0 to sit exactly in the top status bar center hole-punch!
+        // 动态垂直偏移逻辑：计算当前设备状态栏高度，实现绝佳居中
+        val statusBarHeightPx = getStatusBarHeightPx()
+        val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
+        val yOffsetPx = Math.max(dpToPx(2f), (statusBarHeightPx - miniHeightPx) / 2)
+
         wmParams = WindowManager.LayoutParams(
             dpToPx(MINI_WIDTH_DP),
-            dpToPx(MINI_HEIGHT_DP),
+            miniHeightPx,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
@@ -493,60 +509,25 @@ class MainActivity : AudioServiceActivity() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = dpToPx(1f) // Sit right at the status bar line
+            y = yOffsetPx // 完美对齐摄像头与状态栏中心
         }
 
-        // Gesture handling
-        val gestureHandler = Handler(Looper.getMainLooper())
-        var longPressRunnable: Runnable? = null
-        var downX = 0f
-        var downY = 0f
-        var isClickValid = false
-
-        islandView?.setOnTouchListener { _, event ->
-            when (event.action) {
-                MotionEvent.ACTION_DOWN -> {
-                    downX = event.rawX
-                    downY = event.rawY
-                    isClickValid = true
-                    longPressRunnable = Runnable {
-                        if (isClickValid) {
-                            isClickValid = false
-                            val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                            }
-                            startActivity(intent)
-                        }
-                    }
-                    gestureHandler.postDelayed(longPressRunnable!!, 500)
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (Math.abs(event.rawX - downX) > dpToPx(10f) ||
-                        Math.abs(event.rawY - downY) > dpToPx(10f)) {
-                        isClickValid = false
-                        longPressRunnable?.let { gestureHandler.removeCallbacks(it) }
-                    }
-                    true
-                }
-                MotionEvent.ACTION_UP -> {
-                    longPressRunnable?.let { gestureHandler.removeCallbacks(it) }
-                    if (isClickValid) {
-                        if (!isExpanded) {
-                            expandIsland()
-                        } else {
-                            collapseIsland()
-                        }
-                    }
-                    true
-                }
-                MotionEvent.ACTION_CANCEL -> {
-                    longPressRunnable?.let { gestureHandler.removeCallbacks(it) }
-                    isClickValid = false
-                    true
-                }
-                else -> false
+        // --- 核心修复：彻底解决点击无响应问题 ---
+        // 使用 Android 原生防抖动 Standard ClickListener 和 LongClickListener
+        islandView?.setOnClickListener {
+            if (!isExpanded) {
+                expandIsland()
+            } else {
+                collapseIsland()
             }
+        }
+
+        islandView?.setOnLongClickListener {
+            val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
+            startActivity(intent)
+            true
         }
 
         try {
@@ -653,7 +634,7 @@ class MainActivity : AudioServiceActivity() {
         hideIsland()
     }
 
-    // Custom WaveformView
+    // WaveformView
     class WaveformView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
