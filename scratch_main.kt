@@ -64,13 +64,10 @@ class MainActivity : AudioServiceActivity() {
 
     private val executor = Executors.newSingleThreadExecutor()
 
-    // 完美复原你认可的位置版本的精确参数 (126dp x 28dp, radius 14dp)
+    // 适配 Realme 15 挖孔中心位置与尺寸
     private var MINI_WIDTH_DP = 126f
     private var MINI_HEIGHT_DP = 28f
     private var MINI_RADIUS_DP = 14f
-
-    // 扩展触摸热区高度（向下延伸透明触控区，穿透 ColorOS 状态栏手势拦截）
-    private var TOUCH_HITBOX_HEIGHT_DP = 46f
 
     private val EXPANDED_WIDTH_DP = 330f
     private val EXPANDED_HEIGHT_DP = 160f
@@ -160,9 +157,6 @@ class MainActivity : AudioServiceActivity() {
         ).roundToInt()
     }
 
-    /**
-     * 完美复原你认可理想位置版本的偏置算法 (8dp ~ 12dp)
-     */
     private fun calculateCameraCenterYPx(): Int {
         var sbHeight = 0
         try {
@@ -271,10 +265,13 @@ class MainActivity : AudioServiceActivity() {
     @SuppressLint("ClickableViewAccessibility")
     private fun showIsland() {
         if (isIslandShowing && islandView != null) {
-            updateUI()
-            return
+            try {
+                windowManager?.removeView(islandView)
+            } catch (e: Exception) {}
+            isIslandShowing = false
         }
 
+        // 核心改变1：使用 applicationContext 创建 WindowManager 系统级全局视图，避免 Activity 暂停后触摸通道失效！
         val appContext = applicationContext
         windowManager = appContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
@@ -288,19 +285,18 @@ class MainActivity : AudioServiceActivity() {
             cornerRadius = dpToPx(MINI_RADIUS_DP).toFloat()
             setStroke(dpToPx(0.8f), Color.parseColor("#33FFFFFF"))
         }
+        islandView?.background = islandBackground
 
-        // --- MINI CONTAINER (外观完全维持你认可版本的 126dp x 28dp) ---
+        // --- MINI CONTAINER (收起态: 126dp x 28dp) ---
         miniContainer = LinearLayout(appContext).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             isClickable = true
             isFocusable = true
-            background = islandBackground
             setPadding(dpToPx(4f), dpToPx(2f), dpToPx(6f), dpToPx(2f))
             layoutParams = FrameLayout.LayoutParams(
-                dpToPx(MINI_WIDTH_DP),
-                dpToPx(MINI_HEIGHT_DP),
-                Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
 
@@ -336,7 +332,6 @@ class MainActivity : AudioServiceActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
-            background = islandBackground
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -447,7 +442,7 @@ class MainActivity : AudioServiceActivity() {
         progressRow.addView(seekBar)
         progressRow.addView(durTextView)
 
-        // Bottom Row: Media Controls
+        // Bottom Row: Media Controls (Prev, Play/Pause circle, Next, Open App)
         val controlsRow = LinearLayout(appContext).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -525,29 +520,27 @@ class MainActivity : AudioServiceActivity() {
         islandView?.addView(miniContainer)
         islandView?.addView(expandedContainer)
 
-        // 完美复原你认可的位置
+        // 核心改变2：添加 FLAG_NOT_TOUCH_MODAL 标记，允许状态栏区域悬浮窗口独立接收触摸事件！
         val yOffsetPx = calculateCameraCenterYPx()
-        val hitBoxHeightPx = dpToPx(TOUCH_HITBOX_HEIGHT_DP)
+        val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
 
-        // 【最关键突破】：Window 容器设置为包含透明扩展触控区的 46dp 高度，
-        // 使得下半部分延伸出 ColorOS 系统状态栏手势拦截区（>28dp），在桌面和任何 App 下触摸 100% 捕获！
         wmParams = WindowManager.LayoutParams(
             dpToPx(MINI_WIDTH_DP),
-            hitBoxHeightPx,
+            miniHeightPx,
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
                 WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
             else
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             y = yOffsetPx
         }
 
+        // 绑定事件代理
         val toggleExpandListener = View.OnClickListener {
             if (!isExpanded) {
                 expandIsland()
@@ -627,7 +620,7 @@ class MainActivity : AudioServiceActivity() {
 
         animateIslandSize(
             dpToPx(MINI_WIDTH_DP), dpToPx(EXPANDED_WIDTH_DP),
-            dpToPx(TOUCH_HITBOX_HEIGHT_DP), dpToPx(EXPANDED_HEIGHT_DP),
+            dpToPx(MINI_HEIGHT_DP), dpToPx(EXPANDED_HEIGHT_DP),
             dpToPx(MINI_RADIUS_DP), dpToPx(EXPANDED_RADIUS_DP)
         )
     }
@@ -643,7 +636,7 @@ class MainActivity : AudioServiceActivity() {
 
         animateIslandSize(
             dpToPx(EXPANDED_WIDTH_DP), dpToPx(MINI_WIDTH_DP),
-            dpToPx(EXPANDED_HEIGHT_DP), dpToPx(TOUCH_HITBOX_HEIGHT_DP),
+            dpToPx(EXPANDED_HEIGHT_DP), dpToPx(MINI_HEIGHT_DP),
             dpToPx(EXPANDED_RADIUS_DP), dpToPx(MINI_RADIUS_DP)
         )
     }
