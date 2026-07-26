@@ -30,7 +30,7 @@ class _DynamicIslandWidgetState extends State<DynamicIslandWidget>
 
     _waveAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
+      duration: const Duration(milliseconds: 800),
     )..repeat(reverse: true);
   }
 
@@ -62,7 +62,7 @@ class _DynamicIslandWidgetState extends State<DynamicIslandWidget>
       final currentSong = playerController.currentSong.value;
       final isInBackground = _isInBackground.value;
 
-      // 仅在后台播放/退到后台时浮现灵动岛
+      // 仅在退到后台且播放音乐时在顶部状态栏浮现灵动岛
       if (currentSong == null || !isInBackground) {
         _discRotationController.stop();
         return const SizedBox.shrink();
@@ -89,36 +89,32 @@ class _DynamicIslandWidgetState extends State<DynamicIslandWidget>
         child: Align(
           alignment: Alignment.topCenter,
           child: Padding(
-            padding: const EdgeInsets.only(top: 2.0),
+            padding: const EdgeInsets.only(top: 0.0),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 350),
+              duration: const Duration(milliseconds: 320),
               curve: Curves.fastOutSlowIn,
               width: isExpanded
                   ? math.min(MediaQuery.of(context).size.width - 24, 340)
-                  : 120, // 最小化收起形态：极简精小 120px 胶囊
-              height: isExpanded ? 165 : 28, // 高度仅 28px 精准嵌入通知栏/刘海屏
+                  : 148, // 完美还原截图尺寸：148px 宽胶囊
+              height: isExpanded ? 165 : 34, // 34px 高度精准匹配顶部 Status Bar 状态栏
               decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(isExpanded ? 28 : 14),
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(isExpanded ? 28 : 17),
                 border: Border.all(
-                  color: isPlaying
-                      ? Theme.of(context).colorScheme.primary.withOpacity(0.5)
-                      : Colors.white24,
-                  width: 1.0,
+                  color: Colors.white.withOpacity(0.15),
+                  width: 0.8,
                 ),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
-                    color: isPlaying
-                        ? Theme.of(context).colorScheme.primary.withOpacity(0.4)
-                        : Colors.black45,
-                    blurRadius: isExpanded ? 20 : 8,
-                    spreadRadius: isExpanded ? 1 : 0,
-                    offset: const Offset(0, 3),
+                    color: Colors.black87,
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                    offset: Offset(0, 2),
                   ),
                 ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(isExpanded ? 28 : 14),
+                borderRadius: BorderRadius.circular(isExpanded ? 28 : 17),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -128,11 +124,11 @@ class _DynamicIslandWidgetState extends State<DynamicIslandWidget>
                     child: Padding(
                       padding: EdgeInsets.symmetric(
                         horizontal: isExpanded ? 12.0 : 6.0,
-                        vertical: isExpanded ? 8.0 : 2.0,
+                        vertical: isExpanded ? 8.0 : 4.0,
                       ),
                       child: isExpanded
                           ? _buildExpandedIsland(context, playerController, currentSong, isPlaying)
-                          : _buildCollapsedMiniIsland(context, playerController, currentSong, isPlaying),
+                          : _buildExactScreenshotMiniIsland(context, playerController, currentSong, isPlaying),
                     ),
                   ),
                 ),
@@ -144,13 +140,72 @@ class _DynamicIslandWidgetState extends State<DynamicIslandWidget>
     });
   }
 
-  /// 展开形态 UI (Expanded Island with Progress Slider & Control Buttons)
+  /// 1:1 还原截图样式的极简收起态胶囊 (Mini Capsule Matching User Screenshot)
+  Widget _buildExactScreenshotMiniIsland(BuildContext context,
+      PlayerController playerController, MediaItem song, bool isPlaying) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // 左侧：26px 原生风格圆形专辑小头像
+        RotationTransition(
+          turns: _discRotationController,
+          child: Container(
+            width: 26,
+            height: 26,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black,
+            ),
+            child: ClipOval(
+              child: song.artUri != null
+                  ? CachedNetworkImage(
+                      imageUrl: song.artUri.toString(),
+                      fit: BoxFit.cover,
+                      errorWidget: (context, url, error) => Container(
+                        color: Colors.grey[900],
+                        child: const Icon(Icons.music_note,
+                            size: 14, color: Colors.white70),
+                      ),
+                    )
+                  : Container(
+                      color: Colors.grey[900],
+                      child: const Icon(Icons.music_note,
+                          size: 14, color: Colors.white70),
+                    ),
+            ),
+          ),
+        ),
+        
+        // 右侧：截图同款纯白跳动波浪律动条 (White Audio Waveform)
+        Padding(
+          padding: const EdgeInsets.only(right: 4.0),
+          child: SizedBox(
+            width: 22,
+            height: 16,
+            child: AnimatedBuilder(
+              animation: _waveAnimationController,
+              builder: (context, child) {
+                return CustomPaint(
+                  painter: ScreenshotWhiteWaveformPainter(
+                    progress: _waveAnimationController.value,
+                    isPlaying: isPlaying,
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 展开形态 UI (Expanded Island with Slider & Controls)
   Widget _buildExpandedIsland(BuildContext context,
       PlayerController playerController, MediaItem song, bool isPlaying) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // 顶部歌名与图像
         Row(
           children: [
             RotationTransition(
@@ -213,17 +268,15 @@ class _DynamicIslandWidgetState extends State<DynamicIslandWidget>
                 ],
               ),
             ),
-            // 动态流光音浪
             SizedBox(
-              width: 32,
-              height: 20,
+              width: 28,
+              height: 18,
               child: AnimatedBuilder(
                 animation: _waveAnimationController,
                 builder: (context, child) {
                   return CustomPaint(
-                    painter: AudioWaveformPainter(
+                    painter: ScreenshotWhiteWaveformPainter(
                       progress: _waveAnimationController.value,
-                      color: Theme.of(context).colorScheme.primary,
                       isPlaying: isPlaying,
                     ),
                   );
@@ -233,7 +286,7 @@ class _DynamicIslandWidgetState extends State<DynamicIslandWidget>
           ],
         ),
 
-        // 中间：音乐播放进度条 (Progress Slider)
+        // 播放进度条
         Obx(() {
           final position = playerController.progressBarStatus.value.current;
           final duration = playerController.progressBarStatus.value.total;
@@ -279,7 +332,7 @@ class _DynamicIslandWidgetState extends State<DynamicIslandWidget>
           );
         }),
 
-        // 底部：功能按键
+        // 控件按键
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
@@ -324,62 +377,6 @@ class _DynamicIslandWidgetState extends State<DynamicIslandWidget>
     );
   }
 
-  /// 最小化收起形态 UI (Ultra-Mini Collapsed Capsule: Width 120px, Height 28px)
-  Widget _buildCollapsedMiniIsland(BuildContext context,
-      PlayerController playerController, MediaItem song, bool isPlaying) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // 极简 18px 旋转黑胶唱片
-        RotationTransition(
-          turns: _discRotationController,
-          child: Container(
-            width: 18,
-            height: 18,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-            ),
-            child: ClipOval(
-              child: song.artUri != null
-                  ? CachedNetworkImage(
-                      imageUrl: song.artUri.toString(),
-                      fit: BoxFit.cover,
-                      errorWidget: (context, url, error) => Container(
-                        color: Colors.grey[850],
-                        child: const Icon(Icons.music_note,
-                            size: 12, color: Colors.white70),
-                      ),
-                    )
-                  : Container(
-                      color: Colors.grey[850],
-                      child: const Icon(Icons.music_note,
-                          size: 12, color: Colors.white70),
-                    ),
-            ),
-          ),
-        ),
-        // 居中极简跳动音频律动条
-        SizedBox(
-          width: 22,
-          height: 14,
-          child: AnimatedBuilder(
-            animation: _waveAnimationController,
-            builder: (context, child) {
-              return CustomPaint(
-                painter: AudioWaveformPainter(
-                  progress: _waveAnimationController.value,
-                  color: Theme.of(context).colorScheme.primary,
-                  isPlaying: isPlaying,
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, "0");
     final minutes = twoDigits(duration.inMinutes.remainder(60));
@@ -388,21 +385,20 @@ class _DynamicIslandWidgetState extends State<DynamicIslandWidget>
   }
 }
 
-/// 绘制高质感脉冲流光音浪 (Audio Waveform Painter)
-class AudioWaveformPainter extends CustomPainter {
+/// 绘制截图同款纯白跳动律动条 (Screenshot Pure White Waveform Painter)
+class ScreenshotWhiteWaveformPainter extends CustomPainter {
   final double progress;
-  final Color color;
   final bool isPlaying;
 
-  AudioWaveformPainter({
+  ScreenshotWhiteWaveformPainter({
     required this.progress,
-    required this.color,
     required this.isPlaying,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
+      ..color = Colors.white
       ..style = PaintingStyle.fill
       ..strokeCap = StrokeCap.round;
 
@@ -414,26 +410,17 @@ class AudioWaveformPainter extends CustomPainter {
 
     final List<double> heights = isPlaying
         ? [
-            0.3 + 0.7 * math.sin(progress * math.pi),
-            0.8 - 0.6 * math.cos(progress * math.pi * 1.5).abs(),
-            0.4 + 0.6 * math.sin(progress * math.pi * 2.0).abs(),
-            0.2 + 0.8 * math.cos(progress * math.pi),
+            0.35 + 0.65 * math.sin(progress * math.pi),
+            0.85 - 0.65 * math.cos(progress * math.pi * 1.4).abs(),
+            0.45 + 0.55 * math.sin(progress * math.pi * 1.8).abs(),
+            0.25 + 0.75 * math.cos(progress * math.pi),
           ]
-        : [0.25, 0.25, 0.25, 0.25];
-
-    final colors = [
-      color,
-      color.withOpacity(0.85),
-      Colors.cyanAccent,
-      Colors.pinkAccent,
-    ];
+        : [0.3, 0.3, 0.3, 0.3];
 
     for (int i = 0; i < count; i++) {
       final x = startX + i * (barWidth + space);
-      final currentHeight = math.max(3.0, size.height * heights[i]);
+      final currentHeight = math.max(3.5, size.height * heights[i]);
       final y = (size.height - currentHeight) / 2;
-
-      paint.color = colors[i % colors.length];
 
       final rect = RRect.fromRectAndRadius(
         Rect.fromLTWH(x, y, barWidth, currentHeight),
@@ -445,9 +432,8 @@ class AudioWaveformPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant AudioWaveformPainter oldDelegate) {
+  bool shouldRepaint(covariant ScreenshotWhiteWaveformPainter oldDelegate) {
     return oldDelegate.progress != progress ||
-        oldDelegate.isPlaying != isPlaying ||
-        oldDelegate.color != color;
+        oldDelegate.isPlaying != isPlaying;
   }
 }
