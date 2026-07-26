@@ -22,6 +22,8 @@ import 'ui/screens/Library/library_controller.dart';
 import 'utils/system_tray.dart';
 import 'utils/update_check_flag_file.dart';
 
+import '/services/permission_service.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initHive();
@@ -31,6 +33,7 @@ Future<void> main() async {
   WidgetsBinding.instance.addObserver(LifecycleHandler());
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   TerminateRestart.instance.initialize();
+  PermissionService.initPermissionsOnAppStart();
   runApp(const MyApp());
 }
 
