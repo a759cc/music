@@ -64,9 +64,9 @@ class MainActivity : AudioServiceActivity() {
 
     private val executor = Executors.newSingleThreadExecutor()
 
-    // 针对 Realme 15 / ColorOS 动态精确定位参数
-    private var MINI_WIDTH_DP = 126f  // 再次缩小尺寸（比原来小一大圈）
-    private var MINI_HEIGHT_DP = 28f  // 更加精致紧凑的高度
+    // 适配 Realme 15 挖孔中心位置与尺寸
+    private var MINI_WIDTH_DP = 126f
+    private var MINI_HEIGHT_DP = 28f
     private var MINI_RADIUS_DP = 14f
 
     private val EXPANDED_WIDTH_DP = 330f
@@ -102,7 +102,6 @@ class MainActivity : AudioServiceActivity() {
                                 currentArtUri = artUri
                                 loadAlbumArt(artUri)
                             }
-                            // 强行重新计算位置与布局
                             showIsland()
                         }
                     }
@@ -158,9 +157,6 @@ class MainActivity : AudioServiceActivity() {
         ).roundToInt()
     }
 
-    /**
-     * 智能计算包含 Realme / ColorOS / Android 15 挖孔屏在内的系统状态栏高度与垂直偏移量
-     */
     private fun calculateCameraCenterYPx(): Int {
         var sbHeight = 0
         try {
@@ -179,13 +175,11 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
-        // Realme 15 / ColorOS 15 的前置挖孔摄像头下移 offset 标准计算：
-        // 挖孔摄像头中心点一般位于距离顶端 12dp ~ 16dp 位置
         val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
         val calculatedY = if (sbHeight > 0) {
-            (sbHeight - miniHeightPx) / 2 + dpToPx(3f) // 额外下移 3dp 居中挖孔
+            (sbHeight - miniHeightPx) / 2 + dpToPx(3f)
         } else {
-            dpToPx(12f) // Realme UI 的标准挖孔垂直中心 Offset
+            dpToPx(12f)
         }
         return Math.max(dpToPx(8f), calculatedY)
     }
@@ -270,7 +264,6 @@ class MainActivity : AudioServiceActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun showIsland() {
-        // 如果已存在，先移除重新挂载，确保最新计算的下移 Offset 立即生效
         if (isIslandShowing && islandView != null) {
             try {
                 windowManager?.removeView(islandView)
@@ -278,9 +271,15 @@ class MainActivity : AudioServiceActivity() {
             isIslandShowing = false
         }
 
-        windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        // 核心改变1：使用 applicationContext 创建 WindowManager 系统级全局视图，避免 Activity 暂停后触摸通道失效！
+        val appContext = applicationContext
+        windowManager = appContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
-        islandView = FrameLayout(this)
+        islandView = FrameLayout(appContext).apply {
+            isClickable = true
+            isFocusable = true
+        }
+
         islandBackground = GradientDrawable().apply {
             setColor(Color.parseColor("#050505"))
             cornerRadius = dpToPx(MINI_RADIUS_DP).toFloat()
@@ -288,10 +287,12 @@ class MainActivity : AudioServiceActivity() {
         }
         islandView?.background = islandBackground
 
-        // --- MINI CONTAINER (收起态: 126dp x 28dp 缩小版) ---
-        miniContainer = LinearLayout(this).apply {
+        // --- MINI CONTAINER (收起态: 126dp x 28dp) ---
+        miniContainer = LinearLayout(appContext).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            isFocusable = true
             setPadding(dpToPx(4f), dpToPx(2f), dpToPx(6f), dpToPx(2f))
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -300,8 +301,10 @@ class MainActivity : AudioServiceActivity() {
         }
 
         val discSize = dpToPx(22f)
-        miniDiscImageView = ImageView(this).apply {
+        miniDiscImageView = ImageView(appContext).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
+            isClickable = true
+            isFocusable = true
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.parseColor("#1A1A1A"))
@@ -310,11 +313,13 @@ class MainActivity : AudioServiceActivity() {
             layoutParams = LinearLayout.LayoutParams(discSize, discSize)
         }
 
-        val miniSpacer = View(this).apply {
+        val miniSpacer = View(appContext).apply {
             layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
         }
 
-        waveformViewMini = WaveformView(this).apply {
+        waveformViewMini = WaveformView(appContext).apply {
+            isClickable = true
+            isFocusable = true
             layoutParams = LinearLayout.LayoutParams(dpToPx(18f), dpToPx(12f))
         }
 
@@ -323,7 +328,7 @@ class MainActivity : AudioServiceActivity() {
         miniContainer?.addView(waveformViewMini)
 
         // --- EXPANDED CONTAINER (展开态: 330dp x 160dp) ---
-        expandedContainer = LinearLayout(this).apply {
+        expandedContainer = LinearLayout(appContext).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dpToPx(16f), dpToPx(12f), dpToPx(16f), dpToPx(12f))
@@ -335,7 +340,7 @@ class MainActivity : AudioServiceActivity() {
         }
 
         // Top Row: Album Art + Song Title/Artist + Waveform
-        val topRow = LinearLayout(this).apply {
+        val topRow = LinearLayout(appContext).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
@@ -345,7 +350,7 @@ class MainActivity : AudioServiceActivity() {
         }
 
         val artSize = dpToPx(44f)
-        expandedArtImageView = ImageView(this).apply {
+        expandedArtImageView = ImageView(appContext).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             background = GradientDrawable().apply {
                 cornerRadius = dpToPx(8f).toFloat()
@@ -357,12 +362,12 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
-        val textContainer = LinearLayout(this).apply {
+        val textContainer = LinearLayout(appContext).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        titleTextView = TextView(this).apply {
+        titleTextView = TextView(appContext).apply {
             setTextColor(Color.WHITE)
             textSize = 15f
             setTypeface(null, Typeface.BOLD)
@@ -370,7 +375,7 @@ class MainActivity : AudioServiceActivity() {
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
 
-        artistTextView = TextView(this).apply {
+        artistTextView = TextView(appContext).apply {
             setTextColor(Color.parseColor("#B0B0B0"))
             textSize = 12f
             isSingleLine = true
@@ -380,7 +385,7 @@ class MainActivity : AudioServiceActivity() {
         textContainer.addView(titleTextView)
         textContainer.addView(artistTextView)
 
-        waveformViewExpanded = WaveformView(this).apply {
+        waveformViewExpanded = WaveformView(appContext).apply {
             layoutParams = LinearLayout.LayoutParams(dpToPx(20f), dpToPx(14f))
         }
 
@@ -389,7 +394,7 @@ class MainActivity : AudioServiceActivity() {
         topRow.addView(waveformViewExpanded)
 
         // Middle Row: Position - SeekBar - Duration
-        val progressRow = LinearLayout(this).apply {
+        val progressRow = LinearLayout(appContext).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
@@ -401,13 +406,13 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
-        posTextView = TextView(this).apply {
+        posTextView = TextView(appContext).apply {
             setTextColor(Color.parseColor("#8E8E93"))
             textSize = 11f
             text = "00:00"
         }
 
-        seekBar = SeekBar(this).apply {
+        seekBar = SeekBar(appContext).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                 leftMargin = dpToPx(6f)
                 rightMargin = dpToPx(6f)
@@ -427,7 +432,7 @@ class MainActivity : AudioServiceActivity() {
             })
         }
 
-        durTextView = TextView(this).apply {
+        durTextView = TextView(appContext).apply {
             setTextColor(Color.parseColor("#8E8E93"))
             textSize = 11f
             text = "00:00"
@@ -438,7 +443,7 @@ class MainActivity : AudioServiceActivity() {
         progressRow.addView(durTextView)
 
         // Bottom Row: Media Controls (Prev, Play/Pause circle, Next, Open App)
-        val controlsRow = LinearLayout(this).apply {
+        val controlsRow = LinearLayout(appContext).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(
@@ -449,7 +454,7 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
-        val prevBtn = TextView(this).apply {
+        val prevBtn = TextView(appContext).apply {
             text = "⏮"
             setTextColor(Color.WHITE)
             textSize = 22f
@@ -461,10 +466,10 @@ class MainActivity : AudioServiceActivity() {
         }
 
         val playBtnSize = dpToPx(40f)
-        val playBtnWrapper = FrameLayout(this).apply {
+        val playBtnWrapper = FrameLayout(appContext).apply {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
-        playPauseButton = ImageView(this).apply {
+        playPauseButton = ImageView(appContext).apply {
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(Color.WHITE)
@@ -478,7 +483,7 @@ class MainActivity : AudioServiceActivity() {
         }
         playBtnWrapper.addView(playPauseButton)
 
-        val nextBtn = TextView(this).apply {
+        val nextBtn = TextView(appContext).apply {
             text = "⏭"
             setTextColor(Color.WHITE)
             textSize = 22f
@@ -489,17 +494,17 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
-        val openAppBtn = TextView(this).apply {
+        val openAppBtn = TextView(appContext).apply {
             text = "📱"
             setTextColor(Color.parseColor("#A0A0A0"))
             textSize = 18f
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             setOnClickListener {
-                val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                val intent = Intent(appContext, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
                 }
-                startActivity(intent)
+                appContext.startActivity(intent)
             }
         }
 
@@ -515,7 +520,7 @@ class MainActivity : AudioServiceActivity() {
         islandView?.addView(miniContainer)
         islandView?.addView(expandedContainer)
 
-        // 动态垂直下移 Offset 参数计算：精准适配 Realme 15 挖孔镜头中心
+        // 核心改变2：添加 FLAG_NOT_TOUCH_MODAL 标记，允许状态栏区域悬浮窗口独立接收触摸事件！
         val yOffsetPx = calculateCameraCenterYPx()
         val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
 
@@ -527,15 +532,15 @@ class MainActivity : AudioServiceActivity() {
             else
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = yOffsetPx // 精准居中于前置摄像头中心
+            y = yOffsetPx
         }
 
-        // --- 核心修复：为视图树中的每一个节点单独绑定 ClickListener ---
+        // 绑定事件代理
         val toggleExpandListener = View.OnClickListener {
             if (!isExpanded) {
                 expandIsland()
@@ -545,14 +550,13 @@ class MainActivity : AudioServiceActivity() {
         }
 
         val openAppLongListener = View.OnLongClickListener {
-            val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+            val intent = Intent(appContext, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
-            startActivity(intent)
+            appContext.startActivity(intent)
             true
         }
 
-        // 给父容器与所有子容器统一强行注入 Click & LongClick 事件代理！
         islandView?.setOnClickListener(toggleExpandListener)
         islandView?.setOnLongClickListener(openAppLongListener)
 
