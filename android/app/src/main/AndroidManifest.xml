@@ -80,10 +80,16 @@
         </intent-filter>
         </service>
 
+        <service 
+            android:name=".DynamicIslandOverlayService"
+            android:enabled="true"
+            android:exported="false" />
+
         <receiver 
             android:name="com.ryanheise.audioservice.MediaButtonReceiver"
             android:exported="true" 
             tools:ignore="Instantiatable">
+
         <intent-filter>
             <action android:name="android.intent.action.MEDIA_BUTTON" />
         </intent-filter>
