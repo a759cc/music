@@ -14,6 +14,7 @@ import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowInsets
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.*
@@ -63,10 +64,10 @@ class MainActivity : AudioServiceActivity() {
 
     private val executor = Executors.newSingleThreadExecutor()
 
-    // 动态居中适配与尺寸参数（微调缩小）
-    private var MINI_WIDTH_DP = 138f
-    private var MINI_HEIGHT_DP = 30f
-    private var MINI_RADIUS_DP = 15f
+    // 针对 Realme 15 / ColorOS 动态精确定位参数
+    private var MINI_WIDTH_DP = 126f  // 再次缩小尺寸（比原来小一大圈）
+    private var MINI_HEIGHT_DP = 28f  // 更加精致紧凑的高度
+    private var MINI_RADIUS_DP = 14f
 
     private val EXPANDED_WIDTH_DP = 330f
     private val EXPANDED_HEIGHT_DP = 160f
@@ -101,6 +102,7 @@ class MainActivity : AudioServiceActivity() {
                                 currentArtUri = artUri
                                 loadAlbumArt(artUri)
                             }
+                            // 强行重新计算位置与布局
                             showIsland()
                         }
                     }
@@ -157,19 +159,35 @@ class MainActivity : AudioServiceActivity() {
     }
 
     /**
-     * 动态获取当前设备系统状态栏高度 (Status Bar Height)
-     * 从而将灵动岛完美包裹在顶部摄像头挖孔中央，不受静态硬编码限制
+     * 智能计算包含 Realme / ColorOS / Android 15 挖孔屏在内的系统状态栏高度与垂直偏移量
      */
-    private fun getStatusBarHeightPx(): Int {
-        var statusBarHeight = 0
-        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
-        if (resourceId > 0) {
-            statusBarHeight = resources.getDimensionPixelSize(resourceId)
+    private fun calculateCameraCenterYPx(): Int {
+        var sbHeight = 0
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                val insets = window?.decorView?.rootWindowInsets?.getInsets(WindowInsets.Type.statusBars())
+                if (insets != null && insets.top > 0) {
+                    sbHeight = insets.top
+                }
+            }
+        } catch (e: Exception) {}
+
+        if (sbHeight <= 0) {
+            val resId = resources.getIdentifier("status_bar_height", "dimen", "android")
+            if (resId > 0) {
+                sbHeight = resources.getDimensionPixelSize(resId)
+            }
         }
-        if (statusBarHeight <= 0) {
-            statusBarHeight = dpToPx(28f)
+
+        // Realme 15 / ColorOS 15 的前置挖孔摄像头下移 offset 标准计算：
+        // 挖孔摄像头中心点一般位于距离顶端 12dp ~ 16dp 位置
+        val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
+        val calculatedY = if (sbHeight > 0) {
+            (sbHeight - miniHeightPx) / 2 + dpToPx(3f) // 额外下移 3dp 居中挖孔
+        } else {
+            dpToPx(12f) // Realme UI 的标准挖孔垂直中心 Offset
         }
-        return statusBarHeight
+        return Math.max(dpToPx(8f), calculatedY)
     }
 
     private fun formatTime(ms: Int): String {
@@ -252,33 +270,36 @@ class MainActivity : AudioServiceActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun showIsland() {
-        if (isIslandShowing) {
-            updateUI()
-            return
+        // 如果已存在，先移除重新挂载，确保最新计算的下移 Offset 立即生效
+        if (isIslandShowing && islandView != null) {
+            try {
+                windowManager?.removeView(islandView)
+            } catch (e: Exception) {}
+            isIslandShowing = false
         }
 
         windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
 
         islandView = FrameLayout(this)
         islandBackground = GradientDrawable().apply {
-            setColor(Color.parseColor("#0F1015"))
+            setColor(Color.parseColor("#050505"))
             cornerRadius = dpToPx(MINI_RADIUS_DP).toFloat()
             setStroke(dpToPx(0.8f), Color.parseColor("#33FFFFFF"))
         }
         islandView?.background = islandBackground
 
-        // --- MINI CONTAINER (收起态: 138dp x 30dp) ---
+        // --- MINI CONTAINER (收起态: 126dp x 28dp 缩小版) ---
         miniContainer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dpToPx(5f), dpToPx(3f), dpToPx(7f), dpToPx(3f))
+            setPadding(dpToPx(4f), dpToPx(2f), dpToPx(6f), dpToPx(2f))
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
 
-        val discSize = dpToPx(24f)
+        val discSize = dpToPx(22f)
         miniDiscImageView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             background = GradientDrawable().apply {
@@ -294,14 +315,14 @@ class MainActivity : AudioServiceActivity() {
         }
 
         waveformViewMini = WaveformView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dpToPx(20f), dpToPx(14f))
+            layoutParams = LinearLayout.LayoutParams(dpToPx(18f), dpToPx(12f))
         }
 
         miniContainer?.addView(miniDiscImageView)
         miniContainer?.addView(miniSpacer)
         miniContainer?.addView(waveformViewMini)
 
-        // --- EXPANDED CONTAINER (展开态卡片: 330dp x 160dp) ---
+        // --- EXPANDED CONTAINER (展开态: 330dp x 160dp) ---
         expandedContainer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
@@ -416,7 +437,7 @@ class MainActivity : AudioServiceActivity() {
         progressRow.addView(seekBar)
         progressRow.addView(durTextView)
 
-        // Bottom Row: Media Controls (Prev, Play/Pause circle, Next, App Switcher / Collapse)
+        // Bottom Row: Media Controls (Prev, Play/Pause circle, Next, Open App)
         val controlsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -468,21 +489,24 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
-        val collapseBtn = TextView(this).apply {
-            text = "🔼"
+        val openAppBtn = TextView(this).apply {
+            text = "📱"
             setTextColor(Color.parseColor("#A0A0A0"))
             textSize = 18f
             gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             setOnClickListener {
-                collapseIsland()
+                val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                }
+                startActivity(intent)
             }
         }
 
         controlsRow.addView(prevBtn)
         controlsRow.addView(playBtnWrapper)
         controlsRow.addView(nextBtn)
-        controlsRow.addView(collapseBtn)
+        controlsRow.addView(openAppBtn)
 
         expandedContainer?.addView(topRow)
         expandedContainer?.addView(progressRow)
@@ -491,10 +515,9 @@ class MainActivity : AudioServiceActivity() {
         islandView?.addView(miniContainer)
         islandView?.addView(expandedContainer)
 
-        // 动态垂直偏移逻辑：计算当前设备状态栏高度，实现绝佳居中
-        val statusBarHeightPx = getStatusBarHeightPx()
+        // 动态垂直下移 Offset 参数计算：精准适配 Realme 15 挖孔镜头中心
+        val yOffsetPx = calculateCameraCenterYPx()
         val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
-        val yOffsetPx = Math.max(dpToPx(2f), (statusBarHeightPx - miniHeightPx) / 2)
 
         wmParams = WindowManager.LayoutParams(
             dpToPx(MINI_WIDTH_DP),
@@ -509,12 +532,11 @@ class MainActivity : AudioServiceActivity() {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = yOffsetPx // 完美对齐摄像头与状态栏中心
+            y = yOffsetPx // 精准居中于前置摄像头中心
         }
 
-        // --- 核心修复：彻底解决点击无响应问题 ---
-        // 使用 Android 原生防抖动 Standard ClickListener 和 LongClickListener
-        islandView?.setOnClickListener {
+        // --- 核心修复：为视图树中的每一个节点单独绑定 ClickListener ---
+        val toggleExpandListener = View.OnClickListener {
             if (!isExpanded) {
                 expandIsland()
             } else {
@@ -522,13 +544,23 @@ class MainActivity : AudioServiceActivity() {
             }
         }
 
-        islandView?.setOnLongClickListener {
+        val openAppLongListener = View.OnLongClickListener {
             val intent = Intent(this@MainActivity, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             }
             startActivity(intent)
             true
         }
+
+        // 给父容器与所有子容器统一强行注入 Click & LongClick 事件代理！
+        islandView?.setOnClickListener(toggleExpandListener)
+        islandView?.setOnLongClickListener(openAppLongListener)
+
+        miniContainer?.setOnClickListener(toggleExpandListener)
+        miniContainer?.setOnLongClickListener(openAppLongListener)
+
+        miniDiscImageView?.setOnClickListener(toggleExpandListener)
+        waveformViewMini?.setOnClickListener(toggleExpandListener)
 
         try {
             windowManager?.addView(islandView, wmParams)
@@ -634,7 +666,7 @@ class MainActivity : AudioServiceActivity() {
         hideIsland()
     }
 
-    // WaveformView
+    // Custom WaveformView
     class WaveformView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
