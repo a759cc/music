@@ -164,6 +164,7 @@ class LifecycleHandler extends WidgetsBindingObserver {
             isPlaying: isPlaying,
             title: song.title,
             artist: song.artist ?? '',
+            artUri: song.artUri?.toString() ?? '',
           );
 
           // Start periodic progress updates for the native overlay
@@ -196,10 +197,12 @@ class LifecycleHandler extends WidgetsBindingObserver {
         durationMs: dur.inMilliseconds,
         title: song.title,
         artist: song.artist ?? '',
+        artUri: song.artUri?.toString() ?? '',
       );
 
       return _isInBackground; // continue while in background
     });
   }
 }
+
 

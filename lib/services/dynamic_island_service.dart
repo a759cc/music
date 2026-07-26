@@ -1,4 +1,3 @@
-import 'package:audio_service/audio_service.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '/ui/player/player_controller.dart';
@@ -66,12 +65,14 @@ class DynamicIslandService {
     bool isPlaying = true,
     String title = '',
     String artist = '',
+    String artUri = '',
   }) async {
     try {
       await _channel.invokeMethod('showIsland', {
         'isPlaying': isPlaying,
         'title': title,
         'artist': artist,
+        'artUri': artUri,
       });
     } catch (_) {}
   }
@@ -88,6 +89,7 @@ class DynamicIslandService {
     int durationMs = 0,
     String title = '',
     String artist = '',
+    String artUri = '',
   }) async {
     try {
       await _channel.invokeMethod('updateState', {
@@ -96,6 +98,7 @@ class DynamicIslandService {
         'durationMs': durationMs,
         'title': title,
         'artist': artist,
+        'artUri': artUri,
       });
     } catch (_) {}
   }
