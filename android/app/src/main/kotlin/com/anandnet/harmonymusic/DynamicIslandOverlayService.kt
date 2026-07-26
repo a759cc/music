@@ -164,12 +164,6 @@ class DynamicIslandOverlayService : Service() {
         ).roundToInt()
     }
 
-    private fun calculateCameraCenterYPx(): Int {
-        // 恢复用户认可的理想版本偏置量：贴合顶部状态栏 1.5dp 偏移
-        return dpToPx(1.5f)
-    }
-
-
     private fun formatTime(ms: Int): String {
         val totalSec = ms / 1000
         val min = totalSec / 60
@@ -266,7 +260,6 @@ class DynamicIslandOverlayService : Service() {
             return
         }
 
-        // 使用 Service 自己的 Context，生成独立的 WindowToken，同 QQ 音乐底层机制 100% 一致！
         islandView = FrameLayout(this).apply {
             isClickable = true
             isFocusable = true
@@ -512,10 +505,10 @@ class DynamicIslandOverlayService : Service() {
         islandView?.addView(miniContainer)
         islandView?.addView(expandedContainer)
 
-        val yOffsetPx = calculateCameraCenterYPx()
         val miniHeightPx = dpToPx(MINI_HEIGHT_DP)
 
-        // 使用 Service 的 WindowManager 添加 Overlay View！
+        // 核心突破：开启 layoutInDisplayCutoutMode 与 FLAG_LAYOUT_NO_LIMITS
+        // 允许 Service Overlay 穿透系统状态栏下移限制，完美贴合顶部摄像挖孔！
         wmParams = WindowManager.LayoutParams(
             dpToPx(MINI_WIDTH_DP),
             miniHeightPx,
@@ -525,11 +518,16 @@ class DynamicIslandOverlayService : Service() {
                 WindowManager.LayoutParams.TYPE_PHONE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                     WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = yOffsetPx
+            y = dpToPx(1.5f) // 贴合状态栏顶格中心
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
         }
 
         val toggleExpandListener = View.OnClickListener {
@@ -662,7 +660,7 @@ class DynamicIslandOverlayService : Service() {
         instance = null
     }
 
-    // WaveformView
+    // Custom WaveformView
     class WaveformView(context: Context) : View(context) {
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
