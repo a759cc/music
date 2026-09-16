@@ -50,7 +50,7 @@ dependencies:
   hive_flutter: ^1.1.0
   html: ^0.15.6
   ionicons: ^0.2.2
-  jni: ^0.14.0
+  jni: 0.14.0
   just_audio: ^0.9.46
   just_audio_media_kit:
     git:
@@ -80,10 +80,10 @@ dependencies:
   url_launcher: ^6.2.1
   widget_marquee: ^0.0.8
   window_manager: ^0.4.2
-  youtube_explode_dart:
-    git:
-      url: https://github.com/anandnet/youtube_explode_dart.git
-      ref: 1d9ec9baa806705b1d859260eeb389ec28c6b024
+  youtube_explode_dart: ^3.0.0
+dependency_overrides:
+  flutter_plugin_android_lifecycle: 2.0.24
+
 dev_dependencies:
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -94,7 +94,7 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   flutter_test:
     sdk: flutter
-  jnigen: ^0.14.0
+  jnigen: 0.14.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
