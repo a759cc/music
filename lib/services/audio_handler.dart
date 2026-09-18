@@ -292,8 +292,14 @@ class MyAudioHandler extends BaseAudioHandler with GetxServiceMixin {
 
     printINFO("Playing Using AudioSource.uri");
     isPlayingUsingLockCachingSource = false;
+    final Uri targetUri = (url.startsWith("http://") ||
+            url.startsWith("https://") ||
+            url.startsWith("file://") ||
+            url.startsWith("asset:///"))
+        ? (Uri.tryParse(url) ?? Uri.file(url))
+        : Uri.file(url);
     return AudioSource.uri(
-      Uri.tryParse(url)!,
+      targetUri,
       tag: mediaItem,
     );
   }

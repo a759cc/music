@@ -9,6 +9,7 @@ import '../../widgets/content_list_widget_item.dart';
 import '../../widgets/list_widget.dart';
 import '../../widgets/sort_widget.dart';
 import '../Settings/settings_screen_controller.dart';
+import '../../../services/local_music_scanner.dart';
 
 class SongsLibraryWidget extends StatelessWidget {
   const SongsLibraryWidget({super.key, this.isBottomNavActive = false});
@@ -25,15 +26,36 @@ class SongsLibraryWidget extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           isBottomNavActive
-              ? const SizedBox(
-                  height: 10,
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "libSongs".tr,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    TextButton.icon(
+                      icon: const Icon(Icons.folder_open_rounded, size: 18),
+                      label: const Text("扫描本地音乐"),
+                      onPressed: () => _showScanOptions(context),
+                    ),
+                  ],
                 )
-              : Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "libSongs".tr,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "libSongs".tr,
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 16.0),
+                      child: TextButton.icon(
+                        icon: const Icon(Icons.folder_open_rounded, size: 18),
+                        label: const Text("扫描本地音乐"),
+                        onPressed: () => _showScanOptions(context),
+                      ),
+                    ),
+                  ],
                 ),
           Obx(() {
             final libSongsController = Get.find<LibrarySongsController>();
@@ -82,14 +104,91 @@ class SongsLibraryWidget extends StatelessWidget {
                       ))
                 : Expanded(
                     child: Center(
-                        child: Text(
-                      "noOfflineSong".tr,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    )),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "noOfflineSong".tr,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 12),
+                            ),
+                            icon: const Icon(Icons.folder_open_rounded),
+                            label: const Text("扫描本地音乐文件"),
+                            onPressed: () => _showScanOptions(context),
+                          ),
+                        ],
+                      ),
+                    ),
                   );
           })
         ],
       ),
+    );
+  }
+
+  void _showScanOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 16.0, horizontal: 8.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "扫描本地音乐",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.drive_folder_upload_rounded),
+                  ),
+                  title: const Text("扫描指定文件夹"),
+                  subtitle: const Text("选择手机或电脑中的音乐文件夹递归导入"),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    LocalMusicScanner.scanDirectoryPicker();
+                  },
+                ),
+                ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.audio_file_rounded),
+                  ),
+                  title: const Text("选择音频文件导入"),
+                  subtitle: const Text("手动挑选一个或多个音频文件"),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    LocalMusicScanner.pickAudioFiles();
+                  },
+                ),
+                ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.auto_awesome_rounded),
+                  ),
+                  title: const Text("一键快速全盘扫描"),
+                  subtitle: const Text("自动扫描设备系统默认的音乐与下载目录"),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    LocalMusicScanner.quickScanCommonDirectories();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
