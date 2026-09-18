@@ -196,6 +196,17 @@ class Downloader extends GetxService {
     printINFO("Downloading filePath: $filePath");
     final totalBytes = requiredAudioStream.size;
 
+    final dir = Directory(dirPath);
+    if (!dir.existsSync()) {
+      try {
+        dir.createSync(recursive: true);
+      } catch (_) {
+        final fallbackDir = "${settingsScreenController.supportDirPath}/Music";
+        Directory(fallbackDir).createSync(recursive: true);
+        filePath = "$fallbackDir/$songTitle.$actualDownformat";
+      }
+    }
+
     final Map<String, dynamic> headers = {
       "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
@@ -280,13 +291,25 @@ class Downloader extends GetxService {
       },
     ).onError(
       (error, stackTrace) {
+        printERROR("Download failed: $error\n$stackTrace");
+        String message = "downloadError3".tr;
+        if (error is DioException) {
+          if (error.response?.statusCode == 403) {
+            message = "下载被服务器拦截(HTTP 403)，请在代理中开启TUN模式或更换节点";
+          } else if (error.type == DioExceptionType.connectionTimeout ||
+              error.type == DioExceptionType.receiveTimeout) {
+            message = "下载网络超时，请检查代理连接";
+          } else {
+            message = "下载异常: ${error.message ?? '网络连接失败'}";
+          }
+        } else if (error is FileSystemException) {
+          message = "存储写入失败: ${error.message}";
+        }
         ScaffoldMessenger.of(Get.context!).showSnackBar(snackbar(
-            Get.context!, "downloadError3".tr,
+            Get.context!, message,
             size: SanckBarSize.BIG,
-            duration: const Duration(seconds: 2),
+            duration: const Duration(seconds: 4),
             top: !GetPlatform.isDesktop));
-        printINFO(
-            "Downloading failed due to network/stream error! Please try again");
         complete.complete();
       },
     );
