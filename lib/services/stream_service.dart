@@ -12,7 +12,16 @@ class StreamProvider {
     final yt = YoutubeExplode();
     
     try {
-      final res = await yt.videos.streamsClient.getManifest(videoId);
+      final res = await yt.videos.streamsClient.getManifest(
+        videoId,
+        ytClients: [
+          YoutubeApiClient.ios,
+          YoutubeApiClient.androidMusic,
+          YoutubeApiClient.androidVr,
+          YoutubeApiClient.android,
+        ],
+        requireWatchPage: false,
+      );
       final audio = res.audioOnly;
       return StreamProvider(
           playable: true,
